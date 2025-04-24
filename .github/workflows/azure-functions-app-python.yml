@@ -21,12 +21,30 @@ jobs:
         with:
           python-version: '3.9'
 
-      # Install dependencies for all Function Apps
-      - name: Install dependencies
+      # Install dependencies for all Function Apps with error handling
+      - name: Install dependencies for interviewScheduler
         run: |
-          pip install -r interviewScheduler/requirements.txt -t interviewScheduler
-          pip install -r MatchFilterEngine/requirements.txt -t MatchFilterEngine
-          pip install -r ResumeUploadUI/requirements.txt -t ResumeUploadUI
+          if [ -f "interviewScheduler/requirements.txt" ]; then
+            pip install -r interviewScheduler/requirements.txt -t interviewScheduler
+          else
+            echo "requirements.txt not found in interviewScheduler, skipping..."
+          fi
+
+      - name: Install dependencies for MatchFilterEngine
+        run: |
+          if [ -f "MatchFilterEngine/requirements.txt" ]; then
+            pip install -r MatchFilterEngine/requirements.txt -t MatchFilterEngine
+          else
+            echo "requirements.txt not found in MatchFilterEngine, skipping..."
+          fi
+
+      - name: Install dependencies for ResumeUploadUI
+        run: |
+          if [ -f "ResumeUploadUI/requirements.txt" ]; then
+            pip install -r ResumeUploadUI/requirements.txt -t ResumeUploadUI
+          else
+            echo "requirements.txt not found in ResumeUploadUI, skipping..."
+          fi
 
       # Log in to Azure
       - name: Azure Login
