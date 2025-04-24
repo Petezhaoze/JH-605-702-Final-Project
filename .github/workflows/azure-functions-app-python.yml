@@ -1,4 +1,4 @@
-name: Deploy Function Apps to Azure using ZIP
+name: Deploy Azure Function Apps using ZIP
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository with full history
+      # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -21,46 +21,59 @@ jobs:
       - name: List directory contents at root
         run: ls -la
 
-      # Debug: Find interviewScheduler directory recursively
-      - name: Find interviewScheduler directory
-        run: find . -type d -name "interviewScheduler"
+      # Debug: List all directories recursively
+      - name: List all directories recursively
+        run: find . -type d
 
       # Debug: Print current working directory
       - name: Print current working directory
         run: pwd
 
-      # Set up Python environment
+      # Debug: Check for Function App directories
+      - name: Check for Function App directories
+        run: |
+          echo "Checking for interviewScheduler..."
+          find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*"
+          echo "Checking for MatchFilterEngine..."
+          find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*"
+          echo "Checking for ResumeUploadUI..."
+          find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*"
+
+      # Set up Python environment (since these are Python Function Apps)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
-      # Install dependencies for all Function Apps with error handling
+      # Install dependencies for all Function Apps
       - name: Install dependencies for interviewScheduler
         run: |
-          INTERVIEW_DIR=$(find . -type d -name "interviewScheduler" -print -quit)
+          INTERVIEW_DIR=$(find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*" -print -quit)
           if [ -n "$INTERVIEW_DIR" ] && [ -f "$INTERVIEW_DIR/requirements.txt" ]; then
+            echo "Installing dependencies for interviewScheduler in $INTERVIEW_DIR"
             pip install -r "$INTERVIEW_DIR/requirements.txt" -t "$INTERVIEW_DIR"
           else
-            echo "requirements.txt not found in interviewScheduler, skipping..."
+            echo "interviewScheduler or its requirements.txt not found, skipping..."
           fi
 
       - name: Install dependencies for MatchFilterEngine
         run: |
-          MATCH_DIR=$(find . -type d -name "MatchFilterEngine" -print -quit)
+          MATCH_DIR=$(find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*" -print -quit)
           if [ -n "$MATCH_DIR" ] && [ -f "$MATCH_DIR/requirements.txt" ]; then
+            echo "Installing dependencies for MatchFilterEngine in $MATCH_DIR"
             pip install -r "$MATCH_DIR/requirements.txt" -t "$MATCH_DIR"
           else
-            echo "requirements.txt not found in MatchFilterEngine, skipping..."
+            echo "MatchFilterEngine or its requirements.txt not found, skipping..."
           fi
 
       - name: Install dependencies for ResumeUploadUI
         run: |
-          RESUME_DIR=$(find . -type d -name "ResumeUploadUI" -print -quit)
+          RESUME_DIR=$(find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*" -print -quit)
           if [ -n "$RESUME_DIR" ] && [ -f "$RESUME_DIR/requirements.txt" ]; then
+            echo "Installing dependencies for ResumeUploadUI in $RESUME_DIR"
             pip install -r "$RESUME_DIR/requirements.txt" -t "$RESUME_DIR"
           else
-            echo "requirements.txt not found in ResumeUploadUI, skipping..."
+            echo "ResumeUploadUI or its requirements.txt not found, skipping..."
           fi
 
       # Log in to Azure
@@ -69,55 +82,61 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Package and deploy interviewScheduler
-      - name: Package interviewScheduler
+      # Package and deploy interviewScheduler Function App
+      - name: Package interviewScheduler Function App
         run: |
-          INTERVIEW_DIR=$(find . -type d -name "interviewScheduler" -print -quit)
+          INTERVIEW_DIR=$(find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*" -print -quit)
           if [ -n "$INTERVIEW_DIR" ]; then
+            echo "Packaging interviewScheduler from $INTERVIEW_DIR"
             cd "$INTERVIEW_DIR"
-            zip -r ../../interviewScheduler.zip .
+            zip -r interviewScheduler.zip .
+            mv interviewScheduler.zip "$GITHUB_WORKSPACE"
           else
-            echo "interviewScheduler directory not found, skipping..."
+            echo "interviewScheduler directory not found, failing..."
             exit 1
           fi
 
-      - name: Deploy interviewScheduler
+      - name: Deploy interviewScheduler Function App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'interviewScheduler'
           package: 'interviewScheduler.zip'
 
-      # Package and deploy MatchFilterEngine
-      - name: Package MatchFilterEngine
+      # Package and deploy MatchFilterEngine Function App
+      - name: Package MatchFilterEngine Function App
         run: |
-          MATCH_DIR=$(find . -type d -name "MatchFilterEngine" -print -quit)
+          MATCH_DIR=$(find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*" -print -quit)
           if [ -n "$MATCH_DIR" ]; then
+            echo "Packaging MatchFilterEngine from $MATCH_DIR"
             cd "$MATCH_DIR"
-            zip -r ../../MatchFilterEngine.zip .
+            zip -r MatchFilterEngine.zip .
+            mv MatchFilterEngine.zip "$GITHUB_WORKSPACE"
           else
-            echo "MatchFilterEngine directory not found, skipping..."
+            echo "MatchFilterEngine directory not found, failing..."
             exit 1
           fi
 
-      - name: Deploy MatchFilterEngine
+      - name: Deploy MatchFilterEngine Function App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'MatchFilterEngine'
           package: 'MatchFilterEngine.zip'
 
-      # Package and deploy ResumeUploadUI Function
-      - name: Package ResumeUploadUI Function
+      # Package and deploy ResumeUploadUI Function App
+      - name: Package ResumeUploadUI Function App
         run: |
-          RESUME_DIR=$(find . -type d -name "ResumeUploadUI" -print -quit)
+          RESUME_DIR=$(find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*" -print -quit)
           if [ -n "$RESUME_DIR" ]; then
+            echo "Packaging ResumeUploadUI from $RESUME_DIR"
             cd "$RESUME_DIR"
-            zip -r ../../ResumeUploadUIFunction.zip .
+            zip -r ResumeUploadUIFunction.zip .
+            mv ResumeUploadUIFunction.zip "$GITHUB_WORKSPACE"
           else
-            echo "ResumeUploadUI directory not found, skipping..."
+            echo "ResumeUploadUI directory not found, failing..."
             exit 1
           fi
 
-      - name: Deploy ResumeUploadUI Function
+      - name: Deploy ResumeUploadUI Function App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'ResumeUploadUIFunction'
