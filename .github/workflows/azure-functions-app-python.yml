@@ -37,11 +37,22 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Generate unique suffix for Function App names
+      # Generate unique suffix for resource names
       - name: Generate unique suffix
         id: suffix
         run: |
           echo "suffix=$(date +%s)" >> $GITHUB_OUTPUT
+
+      # Create a storage account
+      - name: Create storage account
+        run: |
+          STORAGE_NAME="funcstore${{ steps.suffix.outputs.suffix }}"
+          az storage account create --name $STORAGE_NAME \
+            --resource-group groupproject \
+            --location centralus \
+            --sku Standard_LRS \
+            --kind StorageV2
+          echo "storage_account=$STORAGE_NAME" >> $GITHUB_ENV
 
       # Create interviewschedulingclass Function App
       - name: Create interviewschedulingclass Function App
@@ -53,7 +64,8 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --functions-version 4
+            --functions-version 4 \
+            --storage-account ${{ env.storage_account }}
           echo "interviewschedulingclass=$UNIQUE_NAME" >> $GITHUB_ENV
 
       # Create matchingfilteringclass Function App
@@ -66,7 +78,8 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --functions-version 4
+            --functions-version 4 \
+            --storage-account ${{ env.storage_account }}
           echo "matchingfilteringclass=$UNIQUE_NAME" >> $GITHUB_ENV
 
       # Create resumefinalclass Function App
@@ -79,7 +92,8 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --functions-version 4
+            --functions-version 4 \
+            --storage-account ${{ env.storage_account }}
           echo "resumefinalclass=$UNIQUE_NAME" >> $GITHUB_ENV
 
       # Configure Function App settings
@@ -192,29 +206,3 @@ jobs:
 
       # Package and deploy ResumeUploadUI to resumefinalclass Function App
       - name: Package ResumeUploadUI Function App
-        run: |
-          RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
-          if [ -n "$RESUME_DIR" ]; then
-            echo "Packaging ResumeUploadUI from $RESUME_DIR"
-            mkdir -p temp/ResumeUploadUI
-            cp -r "$RESUME_DIR"/* temp/ResumeUploadUI/
-            cd temp
-            zip -r ResumeUploadUI.zip ResumeUploadUI
-            mv ResumeUploadUI.zip "$GITHUB_WORKSPACE"
-            echo "Listing contents of ResumeUploadUI.zip:"
-            unzip -l "$GITHUB_WORKSPACE/ResumeUploadUI.zip"
-          else
-            echo "ResumeUploadUI directory not found, failing..."
-            exit 1
-          fi
-
-      - name: Deploy ResumeUploadUI to resumefinalclass Function App
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ env.resumefinalclass }}
-          package: 'ResumeUploadUI.zip'
-
-      # Restart resumefinalclass Function App
-      - name: Restart resumefinalclass Function App
-        run: |
-          az functionapp restart --name ${{ env.resumefinalclass }} --resource-group groupproject
