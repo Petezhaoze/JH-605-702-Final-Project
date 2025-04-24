@@ -44,17 +44,30 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-          
+
+      # Create Resource Group (if it doesn't exist)
+      - name: Create Resource Group
+        run: |
+          az group create --name groupproject --location eastus
+          echo "Resource group creation completed."
+
+      # Create a single Storage Account for all Function Apps
+      - name: Create Storage Account
+        run: |
+          STORAGE_ACCOUNT=$(az storage account create --name "mystorage$(date +%s)" --resource-group groupproject --sku Standard_LRS --query name -o tsv)
+          echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT" >> $GITHUB_ENV
+          echo "Storage account $STORAGE_ACCOUNT created."
+
       # Debug: List existing Function Apps
       - name: List existing Function Apps
         run: |
-          az functionapp list --resource-group groupproject974c --query "[].name" -o tsv
+          az functionapp list --resource-group groupproject --query "[].name" -o tsv
 
       # Create interviewschedulingclass Function App
       - name: Create interviewschedulingclass Function App
         run: |
           az functionapp create --name interviewschedulingclass \
-            --resource-group groupproject974c \
+            --resource-group groupproject \
             --consumption-plan-location eastus \
             --runtime python \
             --runtime-version 3.9 \
@@ -67,7 +80,7 @@ jobs:
       - name: Create matchingfilteringclass Function App
         run: |
           az functionapp create --name matchingfilteringclass \
-            --resource-group groupproject974c \
+            --resource-group groupproject \
             --consumption-plan-location eastus \
             --runtime python \
             --runtime-version 3.9 \
@@ -80,7 +93,7 @@ jobs:
       - name: Create resumefinalclass Function App
         run: |
           az functionapp create --name resumefinalclass \
-            --resource-group groupproject974c \
+            --resource-group groupproject \
             --consumption-plan-location eastus \
             --runtime python \
             --runtime-version 3.9 \
@@ -92,7 +105,7 @@ jobs:
       # Debug: List Function Apps after creation
       - name: List Function Apps after creation
         run: |
-          az functionapp list --resource-group groupproject974c --query "[].name" -o tsv
+          az functionapp list --resource-group groupproject --query "[].name" -o tsv
 
       # Set up Python environment
       - name: Set up Python
