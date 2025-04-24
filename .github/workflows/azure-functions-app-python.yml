@@ -110,7 +110,7 @@ jobs:
 
       - name: Install dependencies for MatchFilterEngine
         run: |
-          MATCH_DIR=$(find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*" -print -quit)
+          MATCH_DIR=$(find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*" -print -quit)
           if [ -n "$MATCH_DIR" ] && [ -f "$MATCH_DIR/requirements.txt" ]; then
             echo "Installing dependencies for MatchFilterEngine in $MATCH_DIR"
             pip install -r "$MATCH_DIR/requirements.txt" -t "$MATCH_DIR"
@@ -120,7 +120,7 @@ jobs:
 
       - name: Install dependencies for ResumeUploadUI
         run: |
-          RESUME_DIR=$(find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*" -print -quit)
+          RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
           if [ -n "$RESUME_DIR" ] && [ -f "$RESUME_DIR/requirements.txt" ]; then
             echo "Installing dependencies for ResumeUploadUI in $RESUME_DIR"
             pip install -r "$RESUME_DIR/requirements.txt" -t "$RESUME_DIR"
@@ -131,7 +131,7 @@ jobs:
       # Package and deploy interviewScheduler to interviewschedulingclass Function App
       - name: Package interviewScheduler Function App
         run: |
-          INTERVIEW_DIR=$(find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*" -print -quit)
+          INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
           if [ -n "$INTERVIEW_DIR" ]; then
             echo "Packaging interviewScheduler from $INTERVIEW_DIR"
             cd "$INTERVIEW_DIR"
@@ -151,7 +151,7 @@ jobs:
       # Package and deploy MatchFilterEngine to matchingfilteringclass Function App
       - name: Package MatchFilterEngine Function App
         run: |
-          MATCH_DIR=$(find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*" -print -quit)
+          MATCH_DIR=$(find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*" -print -quit)
           if [ -n "$MATCH_DIR" ]; then
             echo "Packaging MatchFilterEngine from $MATCH_DIR"
             cd "$MATCH_DIR"
@@ -171,7 +171,7 @@ jobs:
       # Package and deploy ResumeUploadUI to resumefinalclass Function App
       - name: Package ResumeUploadUI Function App
         run: |
-          RESUME_DIR=$(find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*" -print -quit)
+          RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
           if [ -n "$RESUME_DIR" ]; then
             echo "Packaging ResumeUploadUI from $RESUME_DIR"
             cd "$RESUME_DIR"
