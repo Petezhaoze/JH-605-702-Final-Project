@@ -11,13 +11,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
+      # Checkout the repository with full history
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # Debug: List directory contents to verify structure
-      - name: List directory contents
+      # Debug: List directory contents at root
+      - name: List directory contents at root
         run: ls -la
+
+      # Debug: Find interviewScheduler directory recursively
+      - name: Find interviewScheduler directory
+        run: find . -type d -name "interviewScheduler"
+
+      # Debug: Print current working directory
+      - name: Print current working directory
+        run: pwd
 
       # Set up Python environment
       - name: Set up Python
@@ -28,24 +38,27 @@ jobs:
       # Install dependencies for all Function Apps with error handling
       - name: Install dependencies for interviewScheduler
         run: |
-          if [ -f "interviewScheduler/requirements.txt" ]; then
-            pip install -r interviewScheduler/requirements.txt -t interviewScheduler
+          INTERVIEW_DIR=$(find . -type d -name "interviewScheduler" -print -quit)
+          if [ -n "$INTERVIEW_DIR" ] && [ -f "$INTERVIEW_DIR/requirements.txt" ]; then
+            pip install -r "$INTERVIEW_DIR/requirements.txt" -t "$INTERVIEW_DIR"
           else
             echo "requirements.txt not found in interviewScheduler, skipping..."
           fi
 
       - name: Install dependencies for MatchFilterEngine
         run: |
-          if [ -f "MatchFilterEngine/requirements.txt" ]; then
-            pip install -r MatchFilterEngine/requirements.txt -t MatchFilterEngine
+          MATCH_DIR=$(find . -type d -name "MatchFilterEngine" -print -quit)
+          if [ -n "$MATCH_DIR" ] && [ -f "$MATCH_DIR/requirements.txt" ]; then
+            pip install -r "$MATCH_DIR/requirements.txt" -t "$MATCH_DIR"
           else
             echo "requirements.txt not found in MatchFilterEngine, skipping..."
           fi
 
       - name: Install dependencies for ResumeUploadUI
         run: |
-          if [ -f "ResumeUploadUI/requirements.txt" ]; then
-            pip install -r ResumeUploadUI/requirements.txt -t ResumeUploadUI
+          RESUME_DIR=$(find . -type d -name "ResumeUploadUI" -print -quit)
+          if [ -n "$RESUME_DIR" ] && [ -f "$RESUME_DIR/requirements.txt" ]; then
+            pip install -r "$RESUME_DIR/requirements.txt" -t "$RESUME_DIR"
           else
             echo "requirements.txt not found in ResumeUploadUI, skipping..."
           fi
@@ -59,9 +72,10 @@ jobs:
       # Package and deploy interviewScheduler
       - name: Package interviewScheduler
         run: |
-          if [ -d "interviewScheduler" ]; then
-            cd interviewScheduler
-            zip -r ../interviewScheduler.zip .
+          INTERVIEW_DIR=$(find . -type d -name "interviewScheduler" -print -quit)
+          if [ -n "$INTERVIEW_DIR" ]; then
+            cd "$INTERVIEW_DIR"
+            zip -r ../../interviewScheduler.zip .
           else
             echo "interviewScheduler directory not found, skipping..."
             exit 1
@@ -76,9 +90,10 @@ jobs:
       # Package and deploy MatchFilterEngine
       - name: Package MatchFilterEngine
         run: |
-          if [ -d "MatchFilterEngine" ]; then
-            cd MatchFilterEngine
-            zip -r ../MatchFilterEngine.zip .
+          MATCH_DIR=$(find . -type d -name "MatchFilterEngine" -print -quit)
+          if [ -n "$MATCH_DIR" ]; then
+            cd "$MATCH_DIR"
+            zip -r ../../MatchFilterEngine.zip .
           else
             echo "MatchFilterEngine directory not found, skipping..."
             exit 1
@@ -93,9 +108,10 @@ jobs:
       # Package and deploy ResumeUploadUI Function
       - name: Package ResumeUploadUI Function
         run: |
-          if [ -d "ResumeUploadUI" ]; then
-            cd ResumeUploadUI
-            zip -r ../ResumeUploadUIFunction.zip .
+          RESUME_DIR=$(find . -type d -name "ResumeUploadUI" -print -quit)
+          if [ -n "$RESUME_DIR" ]; then
+            cd "$RESUME_DIR"
+            zip -r ../../ResumeUploadUIFunction.zip .
           else
             echo "ResumeUploadUI directory not found, skipping..."
             exit 1
