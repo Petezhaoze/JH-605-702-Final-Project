@@ -143,11 +143,10 @@ jobs:
           fi
 
       - name: Deploy interviewScheduler to interviewschedulingclass Function App
-        uses: azure/webapps-deploy@v3
+        uses: Azure/functions-action@v1
         with:
           app-name: 'interviewschedulingclass'
           package: 'interviewScheduler.zip'
-          slot-name: 'production'
 
       # Package and deploy MatchFilterEngine to matchingfilteringclass Function App
       - name: Package MatchFilterEngine Function App
@@ -164,11 +163,10 @@ jobs:
           fi
 
       - name: Deploy MatchFilterEngine to matchingfilteringclass Function App
-        uses: azure/webapps-deploy@v3
+        uses: Azure/functions-action@v1
         with:
           app-name: 'matchingfilteringclass'
           package: 'MatchFilterEngine.zip'
-          slot-name: 'production'
 
       # Package and deploy ResumeUploadUI to resumefinalclass Function App
       - name: Package ResumeUploadUI Function App
@@ -185,8 +183,7 @@ jobs:
           fi
 
       - name: Deploy ResumeUploadUI to resumefinalclass Function App
-        uses: azure/webapps-deploy@v3
+        uses: Azure/functions-action@v1
         with:
           app-name: 'resumefinalclass'
           package: 'ResumeUploadUI.zip'
-          slot-name: 'production'
