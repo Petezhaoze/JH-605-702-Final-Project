@@ -39,7 +39,54 @@ jobs:
           echo "Checking for ResumeUploadUI..."
           find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*"
 
-      # Set up Python environment (since these are Python Function Apps)
+      # Log in to Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Create Resource Group (if it doesn't exist)
+      - name: Create Resource Group
+        run: |
+          az group create --name MyResourceGroup --location eastus --output none || echo "Resource group already exists"
+
+      # Create interviewScheduler Function App
+      - name: Create interviewScheduler Function App
+        run: |
+          az functionapp create --name interviewScheduler \
+            --resource-group MyResourceGroup \
+            --consumption-plan-location eastus \
+            --runtime python \
+            --runtime-version 3.9 \
+            --os-type Linux \
+            --storage-account $(az storage account create --name "mystorage$(date +%s)" --resource-group MyResourceGroup --sku Standard_LRS --query name -o tsv) \
+            --output none || echo "interviewScheduler Function App already exists"
+
+      # Create MatchFilterEngine Function App
+      - name: Create MatchFilterEngine Function App
+        run: |
+          az functionapp create --name MatchFilterEngine \
+            --resource-group MyResourceGroup \
+            --consumption-plan-location eastus \
+            --runtime python \
+            --runtime-version 3.9 \
+            --os-type Linux \
+            --storage-account $(az storage account create --name "mystorage$(date +%s)" --resource-group MyResourceGroup --sku Standard_LRS --query name -o tsv) \
+            --output none || echo "MatchFilterEngine Function App already exists"
+
+      # Create ResumeUploadUIFunction Function App
+      - name: Create ResumeUploadUIFunction Function App
+        run: |
+          az functionapp create --name ResumeUploadUIFunction \
+            --resource-group MyResourceGroup \
+            --consumption-plan-location eastus \
+            --runtime python \
+            --runtime-version 3.9 \
+            --os-type Linux \
+            --storage-account $(az storage account create --name "mystorage$(date +%s)" --resource-group MyResourceGroup --sku Standard_LRS --query name -o tsv) \
+            --output none || echo "ResumeUploadUIFunction Function App already exists"
+
+      # Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -75,12 +122,6 @@ jobs:
           else
             echo "ResumeUploadUI or its requirements.txt not found, skipping..."
           fi
-
-      # Log in to Azure
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # Package and deploy interviewScheduler Function App
       - name: Package interviewScheduler Function App
