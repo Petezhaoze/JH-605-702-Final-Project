@@ -33,11 +33,11 @@ jobs:
       - name: Check for Function App directories
         run: |
           echo "Checking for interviewScheduler..."
-          find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*"
+          find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*"
           echo "Checking for MatchFilterEngine..."
-          find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*"
+          find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*"
           echo "Checking for ResumeUploadUI..."
-          find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*"
+          find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*"
 
       # Log in to Azure
       - name: Azure Login
@@ -59,6 +59,7 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
+            --functions-version 4 \
             || echo "Failed to create interviewschedulingclass Function App or it already exists."
           echo "interviewschedulingclass Function App creation attempted."
 
@@ -71,6 +72,7 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
+            --functions-version 4 \
             || echo "Failed to create matchingfilteringclass Function App or it already exists."
           echo "matchingfilteringclass Function App creation attempted."
 
@@ -83,8 +85,22 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
+            --functions-version 4 \
             || echo "Failed to create resumefinalclass Function App or it already exists."
           echo "resumefinalclass Function App creation attempted."
+
+      # Configure Function App settings
+      - name: Configure Function App settings
+        run: |
+          az functionapp config appsettings set --name interviewschedulingclass \
+            --resource-group groupproject \
+            --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
+          az functionapp config appsettings set --name matchingfilteringclass \
+            --resource-group groupproject \
+            --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
+          az functionapp config appsettings set --name resumefinalclass \
+            --resource-group groupproject \
+            --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
 
       # Debug: List Function Apps after creation
       - name: List Function Apps after creation
@@ -100,7 +116,7 @@ jobs:
       # Install dependencies for all Function Apps
       - name: Install dependencies for interviewScheduler
         run: |
-          INTERVIEW_DIR=$(find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*" -print -quit)
+          INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
           if [ -n "$INTERVIEW_DIR" ] && [ -f "$INTERVIEW_DIR/requirements.txt" ]; then
             echo "Installing dependencies for interviewScheduler in $INTERVIEW_DIR"
             pip install -r "$INTERVIEW_DIR/requirements.txt" -t "$INTERVIEW_DIR"
@@ -134,9 +150,13 @@ jobs:
           INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
           if [ -n "$INTERVIEW_DIR" ]; then
             echo "Packaging interviewScheduler from $INTERVIEW_DIR"
-            cd "$INTERVIEW_DIR"
-            zip -r interviewScheduler.zip .
+            mkdir -p temp/interviewScheduler
+            cp -r "$INTERVIEW_DIR"/* temp/interviewScheduler/
+            cd temp
+            zip -r interviewScheduler.zip interviewScheduler
             mv interviewScheduler.zip "$GITHUB_WORKSPACE"
+            echo "Listing contents of interviewScheduler.zip:"
+            unzip -l "$GITHUB_WORKSPACE/interviewScheduler.zip"
           else
             echo "interviewScheduler directory not found, failing..."
             exit 1
@@ -148,15 +168,24 @@ jobs:
           app-name: 'interviewschedulingclass'
           package: 'interviewScheduler.zip'
 
+      # Restart interviewschedulingclass Function App
+      - name: Restart interviewschedulingclass Function App
+        run: |
+          az functionapp restart --name interviewschedulingclass --resource-group groupproject
+
       # Package and deploy MatchFilterEngine to matchingfilteringclass Function App
       - name: Package MatchFilterEngine Function App
         run: |
           MATCH_DIR=$(find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*" -print -quit)
           if [ -n "$MATCH_DIR" ]; then
             echo "Packaging MatchFilterEngine from $MATCH_DIR"
-            cd "$MATCH_DIR"
-            zip -r MatchFilterEngine.zip .
+            mkdir -p temp/MatchFilterEngine
+            cp -r "$MATCH_DIR"/* temp/MatchFilterEngine/
+            cd temp
+            zip -r MatchFilterEngine.zip MatchFilterEngine
             mv MatchFilterEngine.zip "$GITHUB_WORKSPACE"
+            echo "Listing contents of MatchFilterEngine.zip:"
+            unzip -l "$GITHUB_WORKSPACE/MatchFilterEngine.zip"
           else
             echo "MatchFilterEngine directory not found, failing..."
             exit 1
@@ -168,15 +197,24 @@ jobs:
           app-name: 'matchingfilteringclass'
           package: 'MatchFilterEngine.zip'
 
+      # Restart matchingfilteringclass Function App
+      - name: Restart matchingfilteringclass Function App
+        run: |
+          az functionapp restart --name matchingfilteringclass --resource-group groupproject
+
       # Package and deploy ResumeUploadUI to resumefinalclass Function App
       - name: Package ResumeUploadUI Function App
         run: |
           RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
           if [ -n "$RESUME_DIR" ]; then
             echo "Packaging ResumeUploadUI from $RESUME_DIR"
-            cd "$RESUME_DIR"
-            zip -r ResumeUploadUI.zip .
+            mkdir -p temp/ResumeUploadUI
+            cp -r "$RESUME_DIR"/* temp/ResumeUploadUI/
+            cd temp
+            zip -r ResumeUploadUI.zip ResumeUploadUI
             mv ResumeUploadUI.zip "$GITHUB_WORKSPACE"
+            echo "Listing contents of ResumeUploadUI.zip:"
+            unzip -l "$GITHUB_WORKSPACE/ResumeUploadUI.zip"
           else
             echo "ResumeUploadUI directory not found, failing..."
             exit 1
@@ -187,3 +225,13 @@ jobs:
         with:
           app-name: 'resumefinalclass'
           package: 'ResumeUploadUI.zip'
+
+      # Restart resumefinalclass Function App
+      - name: Restart resumefinalclass Function App
+        run: |
+          az functionapp restart --name resumefinalclass --resource-group groupproject
+
+      # Debug: Check Function App logs for resumefinalclass
+      - name: Check resumefinalclass Function App logs
+        run: |
+          az functionapp log show --name resumefinalclass --resource-group groupproject --query "[].message" -o tsv || echo "No logs available."
