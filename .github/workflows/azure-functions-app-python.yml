@@ -17,14 +17,6 @@ name: Deploy Azure Function Apps using ZIP
          with:
            fetch-depth: 0
  
-       # Debug: List directory contents at root
-       - name: List directory contents at root
-         run: ls -la
- 
-       # Debug: List all directories recursively
-       - name: List all directories recursively
-         run: find . -type d
- 
        # Debug: Print current working directory
        - name: Print current working directory
          run: pwd
@@ -33,13 +25,10 @@ name: Deploy Azure Function Apps using ZIP
        - name: Check for Function App directories
          run: |
            echo "Checking for interviewScheduler..."
-           find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*"
            find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*"
            echo "Checking for MatchFilterEngine..."
-           find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*"
            find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*"
            echo "Checking for ResumeUploadUI..."
-           find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*"
            find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*"
  
        # Log in to Azure
@@ -48,67 +37,77 @@ name: Deploy Azure Function Apps using ZIP
          with:
            creds: ${{ secrets.AZURE_CREDENTIALS }}
  
-       # Debug: List existing Function Apps
-       - name: List existing Function Apps
+       # Generate unique suffix for resource names
+       - name: Generate unique suffix
+         id: suffix
          run: |
-           az functionapp list --resource-group groupproject --query "[].name" -o tsv
+           echo "suffix=$(date +%s)" >> $GITHUB_OUTPUT
+ 
+       # Create a storage account
+       - name: Create storage account
+         run: |
+           STORAGE_NAME="funcstore${{ steps.suffix.outputs.suffix }}"
+           az storage account create --name $STORAGE_NAME \
+             --resource-group groupproject \
+             --location centralus \
+             --sku Standard_LRS \
+             --kind StorageV2
+           echo "storage_account=$STORAGE_NAME" >> $GITHUB_ENV
  
        # Create interviewschedulingclass Function App
        - name: Create interviewschedulingclass Function App
          run: |
-           az functionapp create --name interviewschedulingclass \
+           UNIQUE_NAME=interviewschedulingclass-${{ steps.suffix.outputs.suffix }}
+           az functionapp create --name $UNIQUE_NAME \
              --resource-group groupproject \
-             --consumption-plan-location eastus \
+             --consumption-plan-location centralus \
              --runtime python \
              --runtime-version 3.9 \
              --os-type Linux \
              --functions-version 4 \
-             || echo "Failed to create interviewschedulingclass Function App or it already exists."
-           echo "interviewschedulingclass Function App creation attempted."
+             --storage-account ${{ env.storage_account }}
+           echo "interviewschedulingclass=$UNIQUE_NAME" >> $GITHUB_ENV
  
        # Create matchingfilteringclass Function App
        - name: Create matchingfilteringclass Function App
          run: |
-           az functionapp create --name matchingfilteringclass \
+           UNIQUE_NAME=matchingfilteringclass-${{ steps.suffix.outputs.suffix }}
+           az functionapp create --name $UNIQUE_NAME \
              --resource-group groupproject \
-             --consumption-plan-location eastus \
+             --consumption-plan-location centralus \
              --runtime python \
              --runtime-version 3.9 \
              --os-type Linux \
              --functions-version 4 \
-             || echo "Failed to create matchingfilteringclass Function App or it already exists."
-           echo "matchingfilteringclass Function App creation attempted."
+             --storage-account ${{ env.storage_account }}
+           echo "matchingfilteringclass=$UNIQUE_NAME" >> $GITHUB_ENV
  
        # Create resumefinalclass Function App
        - name: Create resumefinalclass Function App
          run: |
-           az functionapp create --name resumefinalclass \
+           UNIQUE_NAME=resumefinalclass-${{ steps.suffix.outputs.suffix }}
+           az functionapp create --name $UNIQUE_NAME \
              --resource-group groupproject \
-             --consumption-plan-location eastus \
+             --consumption-plan-location centralus \
              --runtime python \
              --runtime-version 3.9 \
              --os-type Linux \
              --functions-version 4 \
-             || echo "Failed to create resumefinalclass Function App or it already exists."
-           echo "resumefinalclass Function App creation attempted."
+             --storage-account ${{ env.storage_account }}
+           echo "resumefinalclass=$UNIQUE_NAME" >> $GITHUB_ENV
  
        # Configure Function App settings
        - name: Configure Function App settings
          run: |
-           az functionapp config appsettings set --name interviewschedulingclass \
+           az functionapp config appsettings set --name ${{ env.interviewschedulingclass }} \
              --resource-group groupproject \
              --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
-           az functionapp config appsettings set --name matchingfilteringclass \
+           az functionapp config appsettings set --name ${{ env.matchingfilteringclass }} \
              --resource-group groupproject \
              --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
-           az functionapp config appsettings set --name resumefinalclass \
+           az functionapp config appsettings set --name ${{ env.resumefinalclass }} \
              --resource-group groupproject \
              --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
- 
-       # Debug: List Function Apps after creation
-       - name: List Function Apps after creation
-         run: |
-           az functionapp list --resource-group groupproject --query "[].name" -o tsv
  
        # Set up Python environment
        - name: Set up Python
@@ -119,7 +118,6 @@ name: Deploy Azure Function Apps using ZIP
        # Install dependencies for all Function Apps
        - name: Install dependencies for interviewScheduler
          run: |
-           INTERVIEW_DIR=$(find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*" -print -quit)
            INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
            if [ -n "$INTERVIEW_DIR" ] && [ -f "$INTERVIEW_DIR/requirements.txt" ]; then
              echo "Installing dependencies for interviewScheduler in $INTERVIEW_DIR"
@@ -154,8 +152,6 @@ name: Deploy Azure Function Apps using ZIP
            INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
            if [ -n "$INTERVIEW_DIR" ]; then
              echo "Packaging interviewScheduler from $INTERVIEW_DIR"
-             cd "$INTERVIEW_DIR"
-             zip -r interviewScheduler.zip .
              mkdir -p temp/interviewScheduler
              cp -r "$INTERVIEW_DIR"/* temp/interviewScheduler/
              cd temp
@@ -171,13 +167,13 @@ name: Deploy Azure Function Apps using ZIP
        - name: Deploy interviewScheduler to interviewschedulingclass Function App
          uses: Azure/functions-action@v1
          with:
-           app-name: 'interviewschedulingclass'
+           app-name: ${{ env.interviewschedulingclass }}
            package: 'interviewScheduler.zip'
  
        # Restart interviewschedulingclass Function App
        - name: Restart interviewschedulingclass Function App
          run: |
-           az functionapp restart --name interviewschedulingclass --resource-group groupproject
+           az functionapp restart --name ${{ env.interviewschedulingclass }} --resource-group groupproject
  
        # Package and deploy MatchFilterEngine to matchingfilteringclass Function App
        - name: Package MatchFilterEngine Function App
@@ -185,8 +181,6 @@ name: Deploy Azure Function Apps using ZIP
            MATCH_DIR=$(find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*" -print -quit)
            if [ -n "$MATCH_DIR" ]; then
              echo "Packaging MatchFilterEngine from $MATCH_DIR"
-             cd "$MATCH_DIR"
-             zip -r MatchFilterEngine.zip .
              mkdir -p temp/MatchFilterEngine
              cp -r "$MATCH_DIR"/* temp/MatchFilterEngine/
              cd temp
@@ -202,13 +196,13 @@ name: Deploy Azure Function Apps using ZIP
        - name: Deploy MatchFilterEngine to matchingfilteringclass Function App
          uses: Azure/functions-action@v1
          with:
-           app-name: 'matchingfilteringclass'
+           app-name: ${{ env.matchingfilteringclass }}
            package: 'MatchFilterEngine.zip'
  
        # Restart matchingfilteringclass Function App
        - name: Restart matchingfilteringclass Function App
          run: |
-           az functionapp restart --name matchingfilteringclass --resource-group groupproject
+           az functionapp restart --name ${{ env.matchingfilteringclass }} --resource-group groupproject
  
        # Package and deploy ResumeUploadUI to resumefinalclass Function App
        - name: Package ResumeUploadUI Function App
@@ -216,8 +210,6 @@ name: Deploy Azure Function Apps using ZIP
            RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
            if [ -n "$RESUME_DIR" ]; then
              echo "Packaging ResumeUploadUI from $RESUME_DIR"
-             cd "$RESUME_DIR"
-             zip -r ResumeUploadUI.zip .
              mkdir -p temp/ResumeUploadUI
              cp -r "$RESUME_DIR"/* temp/ResumeUploadUI/
              cd temp
@@ -233,15 +225,10 @@ name: Deploy Azure Function Apps using ZIP
        - name: Deploy ResumeUploadUI to resumefinalclass Function App
          uses: Azure/functions-action@v1
          with:
-           app-name: 'resumefinalclass'
+           app-name: ${{ env.resumefinalclass }}
            package: 'ResumeUploadUI.zip'
  
        # Restart resumefinalclass Function App
        - name: Restart resumefinalclass Function App
          run: |
-           az functionapp restart --name resumefinalclass --resource-group groupproject
- 
-       # Debug: Check Function App logs for resumefinalclass
-       - name: Check resumefinalclass Function App logs
-         run: |
-           az functionapp log show --name resumefinalclass --resource-group groupproject --query "[].message" -o tsv || echo "No logs available."
+           az functionapp restart --name ${{ env.resumefinalclass }} --resource-group groupproject
