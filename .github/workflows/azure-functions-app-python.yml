@@ -15,6 +15,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Debug: List directory contents to verify structure
+      - name: List directory contents
+        run: ls -la
+
       # Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -55,8 +59,14 @@ jobs:
       # Package and deploy interviewScheduler
       - name: Package interviewScheduler
         run: |
-          cd interviewScheduler
-          zip -r ../interviewScheduler.zip .
+          if [ -d "interviewScheduler" ]; then
+            cd interviewScheduler
+            zip -r ../interviewScheduler.zip .
+          else
+            echo "interviewScheduler directory not found, skipping..."
+            exit 1
+          fi
+
       - name: Deploy interviewScheduler
         uses: azure/webapps-deploy@v3
         with:
@@ -66,8 +76,14 @@ jobs:
       # Package and deploy MatchFilterEngine
       - name: Package MatchFilterEngine
         run: |
-          cd MatchFilterEngine
-          zip -r ../MatchFilterEngine.zip .
+          if [ -d "MatchFilterEngine" ]; then
+            cd MatchFilterEngine
+            zip -r ../MatchFilterEngine.zip .
+          else
+            echo "MatchFilterEngine directory not found, skipping..."
+            exit 1
+          fi
+
       - name: Deploy MatchFilterEngine
         uses: azure/webapps-deploy@v3
         with:
@@ -77,8 +93,14 @@ jobs:
       # Package and deploy ResumeUploadUI Function
       - name: Package ResumeUploadUI Function
         run: |
-          cd ResumeUploadUI
-          zip -r ../ResumeUploadUIFunction.zip .
+          if [ -d "ResumeUploadUI" ]; then
+            cd ResumeUploadUI
+            zip -r ../ResumeUploadUIFunction.zip .
+          else
+            echo "ResumeUploadUI directory not found, skipping..."
+            exit 1
+          fi
+
       - name: Deploy ResumeUploadUI Function
         uses: azure/webapps-deploy@v3
         with:
