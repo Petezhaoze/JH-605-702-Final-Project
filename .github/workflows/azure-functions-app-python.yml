@@ -45,19 +45,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Create Resource Group (if it doesn't exist)
-      - name: Create Resource Group
-        run: |
-          az group create --name groupproject --location eastus
-          echo "Resource group creation completed."
-
-      # Create a single Storage Account for all Function Apps
-      - name: Create Storage Account
-        run: |
-          STORAGE_ACCOUNT=$(az storage account create --name "mystorage$(date +%s)" --resource-group groupproject --sku Standard_LRS --query name -o tsv)
-          echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT" >> $GITHUB_ENV
-          echo "Storage account $STORAGE_ACCOUNT created."
-
       # Debug: List existing Function Apps
       - name: List existing Function Apps
         run: |
@@ -72,7 +59,6 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --storage-account ${{ env.STORAGE_ACCOUNT }} \
             || echo "Failed to create interviewschedulingclass Function App or it already exists."
           echo "interviewschedulingclass Function App creation attempted."
 
@@ -85,7 +71,6 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --storage-account ${{ env.STORAGE_ACCOUNT }} \
             || echo "Failed to create matchingfilteringclass Function App or it already exists."
           echo "matchingfilteringclass Function App creation attempted."
 
@@ -98,7 +83,6 @@ jobs:
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --storage-account ${{ env.STORAGE_ACCOUNT }} \
             || echo "Failed to create resumefinalclass Function App or it already exists."
           echo "resumefinalclass Function App creation attempted."
 
