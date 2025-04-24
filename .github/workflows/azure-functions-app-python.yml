@@ -1,0 +1,68 @@
+name: Deploy Function Apps to Azure using ZIP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # Install dependencies for all Function Apps
+      - name: Install dependencies
+        run: |
+          pip install -r interviewScheduler/requirements.txt -t interviewScheduler
+          pip install -r MatchFilterEngine/requirements.txt -t MatchFilterEngine
+          pip install -r ResumeUploadUI/requirements.txt -t ResumeUploadUI
+
+      # Log in to Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Package and deploy interviewScheduler
+      - name: Package interviewScheduler
+        run: |
+          cd interviewScheduler
+          zip -r ../interviewScheduler.zip .
+      - name: Deploy interviewScheduler
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'interviewScheduler'
+          package: 'interviewScheduler.zip'
+
+      # Package and deploy MatchFilterEngine
+      - name: Package MatchFilterEngine
+        run: |
+          cd MatchFilterEngine
+          zip -r ../MatchFilterEngine.zip .
+      - name: Deploy MatchFilterEngine
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'MatchFilterEngine'
+          package: 'MatchFilterEngine.zip'
+
+      # Package and deploy ResumeUploadUI Function
+      - name: Package ResumeUploadUI Function
+        run: |
+          cd ResumeUploadUI
+          zip -r ../ResumeUploadUIFunction.zip .
+      - name: Deploy ResumeUploadUI Function
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'ResumeUploadUIFunction'
+          package: 'ResumeUploadUIFunction.zip'
