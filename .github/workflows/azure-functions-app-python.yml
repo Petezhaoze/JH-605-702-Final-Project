@@ -48,43 +48,64 @@ jobs:
       # Create Resource Group (if it doesn't exist)
       - name: Create Resource Group
         run: |
-          az group create --name MyResourceGroup --location eastus --output none || echo "Resource group already exists"
+          az group create --name groupproject974c --location eastus
+          echo "Resource group creation completed."
 
-      # Create interviewScheduler Function App
-      - name: Create interviewScheduler Function App
+      # Create a single Storage Account for all Function Apps
+      - name: Create Storage Account
         run: |
-          az functionapp create --name interviewScheduler \
-            --resource-group MyResourceGroup \
+          STORAGE_ACCOUNT=$(az storage account create --name "mystorage$(date +%s)" --resource-group groupproject974c --sku Standard_LRS --query name -o tsv)
+          echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT" >> $GITHUB_ENV
+          echo "Storage account $STORAGE_ACCOUNT created."
+
+      # Debug: List existing Function Apps
+      - name: List existing Function Apps
+        run: |
+          az functionapp list --resource-group groupproject974c --query "[].name" -o tsv
+
+      # Create interviewschedulingclass Function App
+      - name: Create interviewschedulingclass Function App
+        run: |
+          az functionapp create --name interviewschedulingclass \
+            --resource-group groupproject974c \
             --consumption-plan-location eastus \
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --storage-account $(az storage account create --name "mystorage$(date +%s)" --resource-group MyResourceGroup --sku Standard_LRS --query name -o tsv) \
-            --output none || echo "interviewScheduler Function App already exists"
+            --storage-account ${{ env.STORAGE_ACCOUNT }} \
+            || echo "Failed to create interviewschedulingclass Function App or it already exists."
+          echo "interviewschedulingclass Function App creation attempted."
 
-      # Create MatchFilterEngine Function App
-      - name: Create MatchFilterEngine Function App
+      # Create matchingfilteringclass Function App
+      - name: Create matchingfilteringclass Function App
         run: |
-          az functionapp create --name MatchFilterEngine \
-            --resource-group MyResourceGroup \
+          az functionapp create --name matchingfilteringclass \
+            --resource-group groupproject974c \
             --consumption-plan-location eastus \
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --storage-account $(az storage account create --name "mystorage$(date +%s)" --resource-group MyResourceGroup --sku Standard_LRS --query name -o tsv) \
-            --output none || echo "MatchFilterEngine Function App already exists"
+            --storage-account ${{ env.STORAGE_ACCOUNT }} \
+            || echo "Failed to create matchingfilteringclass Function App or it already exists."
+          echo "matchingfilteringclass Function App creation attempted."
 
-      # Create ResumeUploadUIFunction Function App
-      - name: Create ResumeUploadUIFunction Function App
+      # Create resumefinalclass Function App
+      - name: Create resumefinalclass Function App
         run: |
-          az functionapp create --name ResumeUploadUIFunction \
-            --resource-group MyResourceGroup \
+          az functionapp create --name resumefinalclass \
+            --resource-group groupproject974c \
             --consumption-plan-location eastus \
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
-            --storage-account $(az storage account create --name "mystorage$(date +%s)" --resource-group MyResourceGroup --sku Standard_LRS --query name -o tsv) \
-            --output none || echo "ResumeUploadUIFunction Function App already exists"
+            --storage-account ${{ env.STORAGE_ACCOUNT }} \
+            || echo "Failed to create resumefinalclass Function App or it already exists."
+          echo "resumefinalclass Function App creation attempted."
+
+      # Debug: List Function Apps after creation
+      - name: List Function Apps after creation
+        run: |
+          az functionapp list --resource-group groupproject974c --query "[].name" -o tsv
 
       # Set up Python environment
       - name: Set up Python
@@ -123,7 +144,7 @@ jobs:
             echo "ResumeUploadUI or its requirements.txt not found, skipping..."
           fi
 
-      # Package and deploy interviewScheduler Function App
+      # Package and deploy interviewScheduler to interviewschedulingclass Function App
       - name: Package interviewScheduler Function App
         run: |
           INTERVIEW_DIR=$(find . -type d -name "*interviewScheduler*" -o -name "*InterviewScheduler*" -print -quit)
@@ -137,13 +158,14 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy interviewScheduler Function App
+      - name: Deploy interviewScheduler to interviewschedulingclass Function App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'interviewScheduler'
+          app-name: 'interviewschedulingclass'
           package: 'interviewScheduler.zip'
+          slot-name: 'production'
 
-      # Package and deploy MatchFilterEngine Function App
+      # Package and deploy MatchFilterEngine to matchingfilteringclass Function App
       - name: Package MatchFilterEngine Function App
         run: |
           MATCH_DIR=$(find . -type d -name "*MatchFilterEngine*" -o -name "*matchfilterengine*" -print -quit)
@@ -157,28 +179,30 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy MatchFilterEngine Function App
+      - name: Deploy MatchFilterEngine to matchingfilteringclass Function App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'MatchFilterEngine'
+          app-name: 'matchingfilteringclass'
           package: 'MatchFilterEngine.zip'
+          slot-name: 'production'
 
-      # Package and deploy ResumeUploadUI Function App
+      # Package and deploy ResumeUploadUI to resumefinalclass Function App
       - name: Package ResumeUploadUI Function App
         run: |
           RESUME_DIR=$(find . -type d -name "*ResumeUploadUI*" -o -name "*resumeuploadui*" -print -quit)
           if [ -n "$RESUME_DIR" ]; then
             echo "Packaging ResumeUploadUI from $RESUME_DIR"
             cd "$RESUME_DIR"
-            zip -r ResumeUploadUIFunction.zip .
-            mv ResumeUploadUIFunction.zip "$GITHUB_WORKSPACE"
+            zip -r ResumeUploadUI.zip .
+            mv ResumeUploadUI.zip "$GITHUB_WORKSPACE"
           else
             echo "ResumeUploadUI directory not found, failing..."
             exit 1
           fi
 
-      - name: Deploy ResumeUploadUI Function App
+      - name: Deploy ResumeUploadUI to resumefinalclass Function App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'ResumeUploadUIFunction'
-          package: 'ResumeUploadUIFunction.zip'
+          app-name: 'resumefinalclass'
+          package: 'ResumeUploadUI.zip'
+          slot-name: 'production'
