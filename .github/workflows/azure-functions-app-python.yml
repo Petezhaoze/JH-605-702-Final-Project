@@ -35,8 +35,7 @@ jobs:
       - name: Azure Login
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURETerrible::true
-            creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # Generate unique suffix for Function App names
       - name: Generate unique suffix
@@ -50,7 +49,7 @@ jobs:
           UNIQUE_NAME=interviewschedulingclass-${{ steps.suffix.outputs.suffix }}
           az functionapp create --name $UNIQUE_NAME \
             --resource-group groupproject \
-            --consumption-plan-location eastus \
+            --consumption-plan-location centralus \
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
@@ -63,7 +62,7 @@ jobs:
           UNIQUE_NAME=matchingfilteringclass-${{ steps.suffix.outputs.suffix }}
           az functionapp create --name $UNIQUE_NAME \
             --resource-group groupproject \
-            --consumption-plan-location eastus \
+            --consumption-plan-location centralus \
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
@@ -76,7 +75,7 @@ jobs:
           UNIQUE_NAME=resumefinalclass-${{ steps.suffix.outputs.suffix }}
           az functionapp create --name $UNIQUE_NAME \
             --resource-group groupproject \
-            --consumption-plan-location eastus \
+            --consumption-plan-location centralus \
             --runtime python \
             --runtime-version 3.9 \
             --os-type Linux \
@@ -90,3 +89,132 @@ jobs:
             --resource-group groupproject \
             --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
           az functionapp config appsettings set --name ${{ env.matchingfilteringclass }} \
+            --resource-group groupproject \
+            --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
+          az functionapp config appsettings set --name ${{ env.resumefinalclass }} \
+            --resource-group groupproject \
+            --settings "FUNCTIONS_EXTENSION_VERSION=~4" "FUNCTIONS_WORKER_RUNTIME=python"
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # Install dependencies for all Function Apps
+      - name: Install dependencies for interviewScheduler
+        run: |
+          INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
+          if [ -n "$INTERVIEW_DIR" ] && [ -f "$INTERVIEW_DIR/requirements.txt" ]; then
+            echo "Installing dependencies for interviewScheduler in $INTERVIEW_DIR"
+            pip install -r "$INTERVIEW_DIR/requirements.txt" -t "$INTERVIEW_DIR"
+          else
+            echo "interviewScheduler or its requirements.txt not found, skipping..."
+          fi
+
+      - name: Install dependencies for MatchFilterEngine
+        run: |
+          MATCH_DIR=$(find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*" -print -quit)
+          if [ -n "$MATCH_DIR" ] && [ -f "$MATCH_DIR/requirements.txt" ]; then
+            echo "Installing dependencies for MatchFilterEngine in $MATCH_DIR"
+            pip install -r "$MATCH_DIR/requirements.txt" -t "$MATCH_DIR"
+          else
+            echo "MatchFilterEngine or its requirements.txt not found, skipping..."
+          fi
+
+      - name: Install dependencies for ResumeUploadUI
+        run: |
+          RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
+          if [ -n "$RESUME_DIR" ] && [ -f "$RESUME_DIR/requirements.txt" ]; then
+            echo "Installing dependencies for ResumeUploadUI in $RESUME_DIR"
+            pip install -r "$RESUME_DIR/requirements.txt" -t "$RESUME_DIR"
+          else
+            echo "ResumeUploadUI or its requirements.txt not found, skipping..."
+          fi
+
+      # Package and deploy interviewScheduler to interviewschedulingclass Function App
+      - name: Package interviewScheduler Function App
+        run: |
+          INTERVIEW_DIR=$(find . -type d -name "*[Ii][Nn][Tt][Ee][Rr][Vv][Ii][Ee][Ww][Ss][Cc][Hh][Ee][Dd][Uu][Ll][Ee][Rr]*" -print -quit)
+          if [ -n "$INTERVIEW_DIR" ]; then
+            echo "Packaging interviewScheduler from $INTERVIEW_DIR"
+            mkdir -p temp/interviewScheduler
+            cp -r "$INTERVIEW_DIR"/* temp/interviewScheduler/
+            cd temp
+            zip -r interviewScheduler.zip interviewScheduler
+            mv interviewScheduler.zip "$GITHUB_WORKSPACE"
+            echo "Listing contents of interviewScheduler.zip:"
+            unzip -l "$GITHUB_WORKSPACE/interviewScheduler.zip"
+          else
+            echo "interviewScheduler directory not found, failing..."
+            exit 1
+          fi
+
+      - name: Deploy interviewScheduler to interviewschedulingclass Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.interviewschedulingclass }}
+          package: 'interviewScheduler.zip'
+
+      # Restart interviewschedulingclass Function App
+      - name: Restart interviewschedulingclass Function App
+        run: |
+          az functionapp restart --name ${{ env.interviewschedulingclass }} --resource-group groupproject
+
+      # Package and deploy MatchFilterEngine to matchingfilteringclass Function App
+      - name: Package MatchFilterEngine Function App
+        run: |
+          MATCH_DIR=$(find . -type d -name "*[Mm][Aa][Tt][Cc][Hh][Ff][Ii][Ll][Tt][Ee][Rr][Ee][Nn][Gg][Ii][Nn][Ee]*" -print -quit)
+          if [ -n "$MATCH_DIR" ]; then
+            echo "Packaging MatchFilterEngine from $MATCH_DIR"
+            mkdir -p temp/MatchFilterEngine
+            cp -r "$MATCH_DIR"/* temp/MatchFilterEngine/
+            cd temp
+            zip -r MatchFilterEngine.zip MatchFilterEngine
+            mv MatchFilterEngine.zip "$GITHUB_WORKSPACE"
+            echo "Listing contents of MatchFilterEngine.zip:"
+            unzip -l "$GITHUB_WORKSPACE/MatchFilterEngine.zip"
+          else
+            echo "MatchFilterEngine directory not found, failing..."
+            exit 1
+          fi
+
+      - name: Deploy MatchFilterEngine to matchingfilteringclass Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.matchingfilteringclass }}
+          package: 'MatchFilterEngine.zip'
+
+      # Restart matchingfilteringclass Function App
+      - name: Restart matchingfilteringclass Function App
+        run: |
+          az functionapp restart --name ${{ env.matchingfilteringclass }} --resource-group groupproject
+
+      # Package and deploy ResumeUploadUI to resumefinalclass Function App
+      - name: Package ResumeUploadUI Function App
+        run: |
+          RESUME_DIR=$(find . -type d -name "*[Rr][Ee][Ss][Uu][Mm][Ee][Uu][Pp][Ll][Oo][Aa][Dd][Uu][Ii]*" -print -quit)
+          if [ -n "$RESUME_DIR" ]; then
+            echo "Packaging ResumeUploadUI from $RESUME_DIR"
+            mkdir -p temp/ResumeUploadUI
+            cp -r "$RESUME_DIR"/* temp/ResumeUploadUI/
+            cd temp
+            zip -r ResumeUploadUI.zip ResumeUploadUI
+            mv ResumeUploadUI.zip "$GITHUB_WORKSPACE"
+            echo "Listing contents of ResumeUploadUI.zip:"
+            unzip -l "$GITHUB_WORKSPACE/ResumeUploadUI.zip"
+          else
+            echo "ResumeUploadUI directory not found, failing..."
+            exit 1
+          fi
+
+      - name: Deploy ResumeUploadUI to resumefinalclass Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.resumefinalclass }}
+          package: 'ResumeUploadUI.zip'
+
+      # Restart resumefinalclass Function App
+      - name: Restart resumefinalclass Function App
+        run: |
+          az functionapp restart --name ${{ env.resumefinalclass }} --resource-group groupproject
