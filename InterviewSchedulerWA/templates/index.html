@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Scheduler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center">Interview Scheduler</h1>
+        <button id="scheduleBtn" class="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">Schedule Interviews</button>
+        <p id="result" class="mt-4 text-center"></p>
+    </div>
+
+    <script>
+        document.getElementById('scheduleBtn').addEventListener('click', async () => {
+            const resultElement = document.getElementById('result');
+            resultElement.textContent = 'Scheduling...';
+            
+            try {
+                const response = await fetch('/schedule_interviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    resultElement.textContent = data.message;
+                    resultElement.classList.add('text-green-600');
+                } else {
+                    resultElement.textContent = data.message;
+                    resultElement.classList.add('text-red-600');
+                }
+            } catch (error) {
+                resultElement.textContent = 'Error occurred while scheduling.';
+                resultElement.classList.add('text-red-600');
+            }
+        });
+    </script>
+</body>
+</html>
