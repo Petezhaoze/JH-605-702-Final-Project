@@ -5,21 +5,76 @@ import requests
 from azure.cosmos import CosmosClient
 import base64
 import os
+import json
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+import threading
+import time
+import random
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 logging.basicConfig(level=logging.INFO)
 
-# Hardcoded configuration variables
 COSMOS_ENDPOINT = "https://finalproj-cosmos.documents.azure.com:443/"
 COSMOS_KEY = "jLfTrYuzKAoDAjOp7UYolqlXEIbcUJEdzmCMEO8Sfwm6BA2mG0bqByduTatCR7n1upaH2AZcCLJAACDbKOdx6A=="
 ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx'}
-MAX_FILE_SIZE = 2 * 1024 * 1024  # 2MB in bytes
+MAX_FILE_SIZE = 2 * 1024 * 1024
+SERVICE_BUS_CONNECTION_STRING = "Endpoint=sb://finalproj.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Vhx8DNxQU0K/FHAXv9dZkPEXIkQGeyMgP+ASbOZbM5I="
+SERVICE_BUS_QUEUE_NAME = "matchfilter-queue"
 
-# Authenticate with Cosmos DB key
 client = CosmosClient(COSMOS_ENDPOINT, credential=COSMOS_KEY)
+
+try:
+    servicebus_client = ServiceBusClient.from_connection_string(SERVICE_BUS_CONNECTION_STRING)
+    logging.info("ServiceBusClient initialized successfully.")
+except Exception as e:
+    logging.error(f"Failed to initialize ServiceBusClient: {str(e)}")
+    raise
 
 def allowed_file(filename):
     return os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
+
+def matchfilter_processor_task():
+    retry_count = 0
+    max_retries = 5
+    base_delay = 1 
+
+    while True:
+        try:
+            with servicebus_client:
+                receiver = servicebus_client.get_queue_receiver(queue_name=SERVICE_BUS_QUEUE_NAME)
+                with receiver:
+                    for message in receiver:
+                        try:
+                            message_body = next(message.body).decode('utf-8')  
+                            trigger_data = json.loads(message_body)
+                            
+                            if "candidate_id" not in trigger_data:
+                                logging.error(f"Malformed message in queue, missing 'candidate_id': {message_body}")
+                                receiver.complete_message(message)  
+                                continue
+
+                            candidate_id = trigger_data["candidate_id"]
+                            logging.info(f"Triggering MatchFilterEngineApp for candidate {candidate_id}...")
+                            response = requests.post("https://enginematchfinalproj.azurewebsites.net/matchfilterengine")
+                            response.raise_for_status()
+                            logging.info(f"Successfully triggered MatchFilterEngineApp for candidate {candidate_id}: {response.status_code}")
+                            receiver.complete_message(message)
+                            retry_count = 0 
+                        except Exception as e:
+                            logging.error(f"Failed to process queue message for MatchFilterEngineApp: {str(e)}")
+                            receiver.abandon_message(message)  
+                            time.sleep(base_delay) 
+        except Exception as e:
+            retry_count += 1
+            if retry_count >= max_retries:
+                logging.error(f"Max retries ({max_retries}) reached for Service Bus connection. Exiting thread.")
+                break
+            delay = base_delay * (2 ** retry_count) + random.uniform(0, 1) 
+            logging.error(f"Error in matchfilter processor thread: {str(e)}. Retrying in {delay:.2f} seconds (attempt {retry_count + 1}/{max_retries})...")
+            time.sleep(delay)
+
+matchfilter_thread = threading.Thread(target=matchfilter_processor_task, daemon=True)
+matchfilter_thread.start()
 
 @app.route('/')
 def index():
@@ -42,23 +97,19 @@ def upload_resume():
         if not email:
             return jsonify({"message": "No email provided."}), 400
 
-        # Validate file type
         if not allowed_file(file.filename):
             return jsonify({"message": "Invalid file type. Only PDF, DOC, or DOCX files are allowed."}), 400
 
-        # Validate file size
         file.seek(0, os.SEEK_END)
         file_size = file.tell()
         if file_size > MAX_FILE_SIZE:
             return jsonify({"message": "File too large. Maximum size is 2MB."}), 400
-        file.seek(0)  # Reset file pointer to the beginning
+        file.seek(0)  
 
-        # Read file content as binary and encode as base64
         file_content = file.read()
         file_content_base64 = base64.b64encode(file_content).decode('utf-8')
         filename = file.filename
 
-        # Connect to Azure Cosmos DB
         database = client.get_database_client("FinalProjDb")
         container = database.get_container_client("Resumes")
 
@@ -71,7 +122,6 @@ def upload_resume():
             "status": "Pending"
         }
 
-        # Write to Cosmos DB
         try:
             logging.info(f"Attempting to write document to Cosmos DB: {document['id']}")
             container.create_item(document)
@@ -80,16 +130,19 @@ def upload_resume():
             logging.error(f"Failed to write to Cosmos DB: {str(cosmos_error)}")
             return jsonify({"message": f"Failed to write to Cosmos DB: {str(cosmos_error)}"}), 500
 
-        # Trigger MatchFilterEngine (updated to new App Service endpoint)
+        logging.info(f"Queuing trigger for MatchFilterEngineApp for candidate {document['id']}...")
+        trigger_message = {
+            "candidate_id": document["id"]
+        }
         try:
-            logging.info("Triggering MatchFilterEngine.")
-            response = requests.post("https://enginematchfinalproj.azurewebsites.net/schedule_interviews")
-            response.raise_for_status()  # Raise an exception for HTTP errors
-            logging.info("Successfully triggered MatchFilterEngine.")
-        except requests.RequestException as req_error:
-            logging.error(f"Failed to trigger MatchFilterEngine: {str(req_error)}")
-            # Continue despite the failure, as the document is already in Cosmos DB
-            pass
+            with servicebus_client:
+                sender = servicebus_client.get_queue_sender(queue_name=SERVICE_BUS_QUEUE_NAME)
+                message = ServiceBusMessage(json.dumps(trigger_message))
+                sender.send_messages(message)
+                logging.info(f"Trigger task queued for MatchFilterEngineApp for candidate {document['id']}.")
+        except Exception as sb_error:
+            logging.error(f"Failed to queue trigger for MatchFilterEngineApp: {str(sb_error)}")
+            return jsonify({"message": f"Failed to queue trigger for MatchFilterEngineApp: {str(sb_error)}"}), 500
 
         return jsonify({"message": f"✅ Resume '{filename}' uploaded and stored for {email}."}), 200
     except Exception as e:

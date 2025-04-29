@@ -7,11 +7,9 @@ import base64
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Hardcoded configuration variables
 COSMOS_ENDPOINT = "https://finalproj-cosmos.documents.azure.com:443/"
 COSMOS_KEY = "jLfTrYuzKAoDAjOp7UYolqlXEIbcUJEdzmCMEO8Sfwm6BA2mG0bqByduTatCR7n1upaH2AZcCLJAACDbKOdx6A=="
 
-# Authenticate with Cosmos DB key
 client = CosmosClient(COSMOS_ENDPOINT, credential=COSMOS_KEY)
 
 @app.route('/matchfilterengine', methods=['POST'])
@@ -31,7 +29,6 @@ def match_filter_engine():
 
         for item in items:
             logging.info(f"Processing resume with ID: {item['id']}")
-            # Decode the base64-encoded resumeContent to text
             try:
                 resume_content_base64 = item.get("resumeContent", "")
                 resume_text = base64.b64decode(resume_content_base64).decode('utf-8', errors='ignore')
@@ -46,15 +43,12 @@ def match_filter_engine():
             container.upsert_item(item)
             updated += 1
 
-        # Trigger InterviewScheduler (fire-and-forget)
         try:
             logging.info("Triggering InterviewScheduler.")
-            # Use a non-blocking request by setting a short timeout and ignoring the response
             requests.post("https://finalprojschedulerwa.azurewebsites.net/schedule_interviews")
             logging.info("InterviewScheduler trigger initiated (fire-and-forget).")
         except requests.exceptions.RequestException as req_error:
             logging.error(f"Failed to initiate InterviewScheduler trigger: {str(req_error)}")
-            # Continue despite the failure, as this is a fire-and-forget request
             pass
 
         return Response(f"✅ Processed {updated} resumes.", status=200, mimetype='text/plain')

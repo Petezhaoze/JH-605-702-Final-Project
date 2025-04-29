@@ -1,16 +1,22 @@
 from flask import Flask, request, jsonify, send_from_directory
 import logging
 from azure.cosmos import CosmosClient, PartitionKey
-from azure.communication.email import EmailClient
 import os
 import uuid
 from datetime import datetime, timedelta
+import json
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+from azure.communication.email import EmailClient
+import threading
+import time
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 COSMOS_ENDPOINT = "https://finalproj-cosmos.documents.azure.com:443/"
 COSMOS_KEY = "jLfTrYuzKAoDAjOp7UYolqlXEIbcUJEdzmCMEO8Sfwm6BA2mG0bqByduTatCR7n1upaH2AZcCLJAACDbKOdx6A=="
+SERVICE_BUS_CONNECTION_STRING = "Endpoint=sb://finalproj.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Vhx8DNxQU0K/FHAXv9dZkPEXIkQGeyMgP+ASbOZbM5I="
+SERVICE_BUS_QUEUE_NAME = "finalprojqueue"
 ACS_CONNECTION_STRING = "endpoint=https://emailcommunicationfinalproj.unitedstates.communication.azure.com/;accesskey=6JMmFWB8pr293b3yDfmBNarjJrRyFXSI2iUuZoSkh48k8Ki3hEC4JQQJ99BDACULyCpciToOAAAAAZCS3FHT"
 
 logging.info("Starting InterviewSchedulerApp...")
@@ -20,6 +26,13 @@ try:
     logging.info("CosmosClient initialized successfully.")
 except Exception as e:
     logging.error(f"Failed to initialize CosmosClient: {str(e)}")
+    raise
+
+try:
+    servicebus_client = ServiceBusClient.from_connection_string(SERVICE_BUS_CONNECTION_STRING)
+    logging.info("ServiceBusClient initialized successfully.")
+except Exception as e:
+    logging.error(f"Failed to initialize ServiceBusClient: {str(e)}")
     raise
 
 try:
@@ -56,13 +69,13 @@ def generate_interview_slots():
     slots = []
     current_date = datetime.now().date()
     days_to_monday = (7 - current_date.weekday()) % 7  
-    if days_to_monday == 0: 
+    if days_to_monday == 0:  
         days_to_monday = 7
     start_date = current_date + timedelta(days=days_to_monday)
 
-    for day in range(5): 
+    for day in range(5):  
         date = start_date + timedelta(days=day)
-        for hour in range(9, 17):
+        for hour in range(9, 17): 
             for minute in (0, 30):
                 slot_time = datetime(date.year, date.month, date.day, hour, minute)
                 slots.append(slot_time)
@@ -80,6 +93,52 @@ def assign_time_slot(used_slots):
             return slot_str
     logging.warning("No available time slots found.")
     return None  
+
+def email_processor_task():
+    while True:
+        try:
+            with servicebus_client:
+                receiver = servicebus_client.get_queue_receiver(queue_name=SERVICE_BUS_QUEUE_NAME)
+                with receiver:
+                    for message in receiver:
+                        try:
+                            email_data = json.loads(str(message))
+                            email = email_data["email"]
+                            interview_time = email_data["interview_time"]
+
+                            message_content = {
+                                "senderAddress": "DoNotReply@2a1083c6-24da-4a2c-bef9-2befb55b094f.azurecomm.net",
+                                "recipients": {
+                                    "to": [{"address": email}]
+                                },
+                                "content": {
+                                    "subject": "Interview Invitation",
+                                    "plainText": f"You have been shortlisted! Please confirm your availability for an interview scheduled on {interview_time}.",
+                                    "html": (
+                                        "<html>"
+                                        "<body>"
+                                        "<h1>Interview Invitation</h1>"
+                                        "<p>You have been shortlisted! Please confirm your availability for an interview scheduled on <strong>" + interview_time + "</strong>.</p>"
+                                        "</body>"
+                                        "</html>"
+                                    )
+                                }
+                            }
+                            poller = email_client.begin_send(message_content)
+                            result = poller.result()
+                            logging.info(f"Email sent to {email}: user")
+
+                            receiver.complete_message(message)
+                        except Exception as e:
+                            logging.error(f"Failed to process queue message: {str(e)}")
+                            receiver.abandon_message(message) 
+                            time.sleep(60)  
+        except Exception as e:
+            logging.error(f"Error in email processor thread: {str(e)}")
+            time.sleep(60)  
+
+email_thread = threading.Thread(target=email_processor_task, daemon=True)
+email_thread.start()
 
 @app.route('/schedule_interviews', methods=['POST'])
 def schedule_interviews():
@@ -112,7 +171,7 @@ def schedule_interviews():
             logging.info(f"Found {len(used_slots)} used time slots.")
         except Exception as e:
             logging.error(f"Failed to query Emails container for used time slots: {str(e)}")
-            used_slots = []  
+            used_slots = [] 
 
         count = 0
         interview_schedules = [] 
@@ -132,28 +191,16 @@ def schedule_interviews():
                 interview_time = str(interview_time)
             interview_time_safe = interview_time.replace('"', '').replace("'", '')
 
-            logging.info(f"Sending email to {item['email']} with interview time {interview_time_safe}...")
-            message = {
-                "senderAddress": "DoNotReply@2a1083c6-24da-4a2c-bef9-2befb55b094f.azurecomm.net",
-                "recipients": {
-                    "to": [{"address": item["email"]}]
-                },
-                "content": {
-                    "subject": "Interview Invitation",
-                    "plainText": f"You have been shortlisted! Please confirm your availability for an interview scheduled on {interview_time_safe}.",
-                    "html": (
-                        "<html>"
-                        "<body>"
-                        "<h1>Interview Invitation</h1>"
-                        "<p>You have been shortlisted! Please confirm your availability for an interview scheduled on <strong>" + interview_time_safe + "</strong>.</p>"
-                        "</body>"
-                        "</html>"
-                    )
-                }
+            logging.info(f"Queuing email for {item['email']} with interview time {interview_time_safe}...")
+            email_message = {
+                "email": item["email"],
+                "interview_time": interview_time_safe
             }
-            poller = email_client.begin_send(message)
-            result = poller.result()
-            logging.info(f"Message sent: Email")
+            with servicebus_client:
+                sender = servicebus_client.get_queue_sender(queue_name=SERVICE_BUS_QUEUE_NAME)
+                message = ServiceBusMessage(json.dumps(email_message))
+                sender.send_messages(message)
+                logging.info(f"Email task queued for {item['email']} with interview time {interview_time_safe}.")
 
             interview_schedule = {
                 "id": str(uuid.uuid4()),

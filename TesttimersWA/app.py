@@ -11,37 +11,29 @@ import io
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Hardcoded configuration variables
 UPLOAD_URL = "https://resumefinalproj.azurewebsites.net/upload_resume"
 
-# Log initialization
 logging.info("Starting ResumeUploaderWeb on finalprojtimerwa.azurewebsites.net...")
 
 def process_single_request():
     try:
-        # Define the keyword array
         keywords = ["python", "azure", "machine learning", "django", "flask"]
-        # Randomly select a subset of keywords (1 to 5 keywords)
         num_keywords = random.randint(1, len(keywords))
         selected_keywords = random.sample(keywords, num_keywords)
         keywords_str = ", ".join(selected_keywords)
 
-        # Generate a sample resume with the selected keywords
         candidate_id = str(uuid.uuid4())
-        email = "jaluterman99@gmail.com"
-        # Simulate a small PDF-like content with the selected keywords
+        email = "test@gmail.com"
         sample_pdf_content = f"%PDF-1.4\n%Sample resume content with skills: {keywords_str}.\n%%EOF".encode('utf-8')
         file_name = f"resume_{candidate_id[:8]}.pdf"
 
-        # Verify file size (must be under 2MB)
         file_size = len(sample_pdf_content)
-        if file_size > 2 * 1024 * 1024:  # 2MB in bytes
+        if file_size > 2 * 1024 * 1024:  
             logging.error(f"Generated file size ({file_size} bytes) exceeds 2MB limit.")
             return
 
         logging.info(f"Generated sample resume for {email} with ID {candidate_id} and keywords: {keywords_str} (size: {file_size} bytes).")
 
-        # Prepare the multipart form data
         files = {
             'resume': (file_name, io.BytesIO(sample_pdf_content), 'application/pdf')
         }
@@ -49,7 +41,6 @@ def process_single_request():
             'email': email
         }
 
-        # Call the ResumeUploadUI endpoint
         logging.info(f"Sending resume to {UPLOAD_URL} for {email}...")
         upload_response = requests.post(
             UPLOAD_URL,
@@ -75,7 +66,7 @@ def upload_resume_task():
             current_hour = now.hour
 
             if last_day != current_day:
-                burst_hour = random.randint(0, 23)  # Random hour between 0 (12 AM) and 23 (11 PM)
+                burst_hour = random.randint(0, 23)  
                 last_day = current_day
                 logging.info(f"Selected burst hour for {current_day}: {burst_hour}:00")
 
@@ -89,7 +80,7 @@ def upload_resume_task():
             is_burst_hour = (now.hour == burst_hour)
 
             if is_burst_hour:
-                num_requests = 1001  # 1 regular + 1000 additional
+                num_requests = 1000
                 logging.info(f"Burst hour {now.hour}:00: Processing {num_requests} requests.")
                 request_times = sorted([random.randint(0, 3599) for _ in range(num_requests)])
                 start_time = now.replace(minute=0, second=0, microsecond=0)
@@ -110,9 +101,8 @@ def upload_resume_task():
 
         except Exception as e:
             logging.error(f"Error in upload_resume_task: {str(e)}")
-            time.sleep(60)  # Wait a minute before retrying on error
+            time.sleep(60) 
 
-# Start the background thread
 thread = threading.Thread(target=upload_resume_task, daemon=True)
 thread.start()
 
