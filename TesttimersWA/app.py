@@ -11,9 +11,9 @@ import io
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-UPLOAD_URL = "https://resumefinalproj.azurewebsites.net/upload_resume"
+UPLOAD_URL = ""
 
-logging.info("Starting ResumeUploaderWeb on finalprojtimerwa.azurewebsites.net...")
+logging.info("")
 
 def process_single_request():
     try:
@@ -23,7 +23,7 @@ def process_single_request():
         keywords_str = ", ".join(selected_keywords)
 
         candidate_id = str(uuid.uuid4())
-        email = "test@gmail.com"
+        email = ""
         sample_pdf_content = f"%PDF-1.4\n%Sample resume content with skills: {keywords_str}.\n%%EOF".encode('utf-8')
         file_name = f"resume_{candidate_id[:8]}.pdf"
 

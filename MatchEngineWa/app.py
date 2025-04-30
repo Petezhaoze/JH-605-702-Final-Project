@@ -7,8 +7,8 @@ import base64
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-COSMOS_ENDPOINT = "https://finalproj-cosmos.documents.azure.com:443/"
-COSMOS_KEY = "jLfTrYuzKAoDAjOp7UYolqlXEIbcUJEdzmCMEO8Sfwm6BA2mG0bqByduTatCR7n1upaH2AZcCLJAACDbKOdx6A=="
+COSMOS_ENDPOINT = ""
+COSMOS_KEY = ""
 
 client = CosmosClient(COSMOS_ENDPOINT, credential=COSMOS_KEY)
 
@@ -17,8 +17,8 @@ def match_filter_engine():
     logging.info('MatchFilterEngine triggered.')
 
     try:
-        db = client.get_database_client("FinalProjDb")
-        container = db.get_container_client("Resumes")
+        db = client.get_database_client("")
+        container = db.get_container_client("")
 
         query = "SELECT * FROM c WHERE c.status = 'Pending'"
         items = list(container.query_items(query=query, enable_cross_partition_query=True))
@@ -44,9 +44,7 @@ def match_filter_engine():
             updated += 1
 
         try:
-            logging.info("Triggering InterviewScheduler.")
-            requests.post("https://finalprojschedulerwa.azurewebsites.net/schedule_interviews")
-            logging.info("InterviewScheduler trigger initiated (fire-and-forget).")
+            requests.post("")
         except requests.exceptions.RequestException as req_error:
             logging.error(f"Failed to initiate InterviewScheduler trigger: {str(req_error)}")
             pass

@@ -13,13 +13,12 @@ import time
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-COSMOS_ENDPOINT = "https://finalproj-cosmos.documents.azure.com:443/"
-COSMOS_KEY = "jLfTrYuzKAoDAjOp7UYolqlXEIbcUJEdzmCMEO8Sfwm6BA2mG0bqByduTatCR7n1upaH2AZcCLJAACDbKOdx6A=="
-SERVICE_BUS_CONNECTION_STRING = "Endpoint=sb://finalproj.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Vhx8DNxQU0K/FHAXv9dZkPEXIkQGeyMgP+ASbOZbM5I="
-SERVICE_BUS_QUEUE_NAME = "finalprojqueue"
-ACS_CONNECTION_STRING = "endpoint=https://emailcommunicationfinalproj.unitedstates.communication.azure.com/;accesskey=6JMmFWB8pr293b3yDfmBNarjJrRyFXSI2iUuZoSkh48k8Ki3hEC4JQQJ99BDACULyCpciToOAAAAAZCS3FHT"
+COSMOS_ENDPOINT = ""
+COSMOS_KEY = ""
+SERVICE_BUS_CONNECTION_STRING = ""
+SERVICE_BUS_QUEUE_NAME = ""
+ACS_CONNECTION_STRING = ""
 
-logging.info("Starting InterviewSchedulerApp...")
 
 try:
     client = CosmosClient(COSMOS_ENDPOINT, credential=COSMOS_KEY)
@@ -43,15 +42,13 @@ except Exception as e:
     raise
 
 try:
-    database = client.get_database_client("FinalProjDb")
-    logging.info("Connected to database FinalProjDb.")
+    database = client.get_database_client("")
     
-    container = database.get_container_client("Resumes")
-    logging.info("Connected to container Resumes.")
+    container = database.get_container_client("")
 
     try:
         container_emails = database.create_container_if_not_exists(
-            id="Emails",
+            id="",
             partition_key=PartitionKey(path="/id"),
             offer_throughput=400
         )
@@ -83,7 +80,6 @@ def generate_interview_slots():
     return slots
 
 def assign_time_slot(used_slots):
-    logging.info("Assigning a time slot...")
     available_slots = generate_interview_slots()
     logging.info(f"Generated {len(available_slots)} available time slots.")
     for slot in available_slots:
@@ -107,7 +103,7 @@ def email_processor_task():
                             interview_time = email_data["interview_time"]
 
                             message_content = {
-                                "senderAddress": "DoNotReply@2a1083c6-24da-4a2c-bef9-2befb55b094f.azurecomm.net",
+                                "senderAddress": "",
                                 "recipients": {
                                     "to": [{"address": email}]
                                 },
@@ -141,16 +137,12 @@ email_thread = threading.Thread(target=email_processor_task, daemon=True)
 email_thread.start()
 
 @app.route('/schedule_interviews', methods=['POST'])
-def schedule_interviews():
-    logging.info('InterviewScheduler triggered via web app.')
-    
+def schedule_interviews():    
     try:
-        logging.info("Connecting to Cosmos DB...")
         if container is None or container_emails is None:
             logging.error("Cosmos DB containers are not initialized.")
             return jsonify({"message": "Cosmos DB containers are not initialized.", "status": "error"}), 500
 
-        logging.info("Querying for shortlisted candidates...")
         query = "SELECT * FROM c WHERE c.status = 'Shortlisted'"
         items = list(container.query_items(query=query, enable_cross_partition_query=True))
         logging.info(f"Found {len(items)} shortlisted candidates.")

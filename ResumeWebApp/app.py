@@ -14,12 +14,12 @@ import random
 app = Flask(__name__, static_folder='static', static_url_path='')
 logging.basicConfig(level=logging.INFO)
 
-COSMOS_ENDPOINT = "https://finalproj-cosmos.documents.azure.com:443/"
-COSMOS_KEY = "jLfTrYuzKAoDAjOp7UYolqlXEIbcUJEdzmCMEO8Sfwm6BA2mG0bqByduTatCR7n1upaH2AZcCLJAACDbKOdx6A=="
+COSMOS_ENDPOINT = ""
+COSMOS_KEY = ""
 ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx'}
 MAX_FILE_SIZE = 2 * 1024 * 1024
-SERVICE_BUS_CONNECTION_STRING = "Endpoint=sb://finalproj.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=Vhx8DNxQU0K/FHAXv9dZkPEXIkQGeyMgP+ASbOZbM5I="
-SERVICE_BUS_QUEUE_NAME = "matchfilter-queue"
+SERVICE_BUS_CONNECTION_STRING = ""
+SERVICE_BUS_QUEUE_NAME = ""
 
 client = CosmosClient(COSMOS_ENDPOINT, credential=COSMOS_KEY)
 
@@ -55,7 +55,7 @@ def matchfilter_processor_task():
 
                             candidate_id = trigger_data["candidate_id"]
                             logging.info(f"Triggering MatchFilterEngineApp for candidate {candidate_id}...")
-                            response = requests.post("https://enginematchfinalproj.azurewebsites.net/matchfilterengine")
+                            response = requests.post("")
                             response.raise_for_status()
                             logging.info(f"Successfully triggered MatchFilterEngineApp for candidate {candidate_id}: {response.status_code}")
                             receiver.complete_message(message)
@@ -110,8 +110,8 @@ def upload_resume():
         file_content_base64 = base64.b64encode(file_content).decode('utf-8')
         filename = file.filename
 
-        database = client.get_database_client("FinalProjDb")
-        container = database.get_container_client("Resumes")
+        database = client.get_database_client("")
+        container = database.get_container_client("")
 
         document = {
             "id": str(uuid.uuid4()),
